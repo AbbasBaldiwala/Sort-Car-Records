@@ -13,16 +13,6 @@ CORRECT_ID_LEN = ID_CRIT_1_NUM_LETTERS + ID_CRIT_2_NUM_ALPHANUMERIC + ID_CRIT_3_
 LETTER_OFFSET_IN_ASCII = 32;
 const double SEARCH_PRICE_RANGE = 0.15;
 
-class Inventory {
-public:
-
-private:
-	string car_Ids[MAX_NUM_RECORDS];
-	string models[MAX_NUM_RECORDS];
-	int quantities[MAX_NUM_RECORDS];
-	double prices[MAX_NUM_RECORDS];
-};
-
 class CarRecord {
 public:
 	CarRecord() { SetRecord("", "", 0, 0); }
@@ -43,6 +33,27 @@ private:
 	string carID, model;
 	int quantity;
 	double price;
+};
+
+class Inventory {
+public:
+
+	//void PopulateInventory(string id, string model, int quantity, double price, int index);
+	void PopulateInventory(CarRecord recs[], int numValid);
+
+	CarRecord* GetInventory() { return inventory; }
+	//string* GetIds() { return carIds; }
+	//string* GetNames() { return modelNames; }
+	//int* GetQuantites() { return quantities; }
+	//double* getPrices() { return prices; }
+
+private:
+	CarRecord inventory[MAX_NUM_RECORDS];
+	//string modelNames[MAX_NUM_RECORDS];
+	//string carIds[MAX_NUM_RECORDS];
+	//int quantities[MAX_NUM_RECORDS];
+	//double prices[MAX_NUM_RECORDS];
+
 };
 
 enum Menu {
@@ -96,15 +107,13 @@ void PrintSearchResultsIdOrModel(const CarRecord validRec[], int numValidRec, st
 void PrintSearchResultsPrice(const CarRecord validRec[], int numValidRec, string border, string header);
 
 //Creates the submenu for sorting the inventory
-void EnterSortSubmenu(const CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header);
+void EnterSortSubmenu(CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header);
 
-void Sort(string* sortByArray, string* parallelArray1, int* parallelArray2, double* parallelArray3, int size);
+//sorts the inventory in decending order based on what the user wants
+void Sort(CarRecord* inventory, int size, int sortOption);
 
-void Sort(int* parallelArray2, string* sortByArray, string* parallelArray1, double* parallelArray3, int size);
-
-void Sort(double* parallelArray3, string* sortByArray, string* parallelArray1, int* parallelArray2, int size);
-
-void PrintSortedData(string carIDs[], string modelNames[], int quantities[], double prices[], int size);
+//prints the sorted data
+void PrintSortedData(CarRecord* inventory, int size, string border, string header);
 
 int main() {
 	int userChoiceMainMenu, numValidRec = 0, numInvalidRec = 0;
@@ -449,19 +458,23 @@ void EnterSearchSubMenu(const CarRecord validRec[], int numValidRec, int& userCh
 	} while (!(userChoiceSearchMenu == SEARCH_GO_BACK || userChoiceMainMenu == QUIT));
 }
 
-void EnterSortSubmenu(const CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header) {
-	int userChoiceSortMenu;
-	string carIDs[MAX_NUM_RECORDS], modelNames[MAX_NUM_RECORDS];
-	int quantities[MAX_NUM_RECORDS];
-	double prices[MAX_NUM_RECORDS];
+//void Inventory::PopulateInventory(string id, string model, int quantity, double price, int index) {
+//	carIds[index] = id;
+//	modelNames[index] = model;
+//	quantities[index] = quantity;
+//	prices[index] = price;
+//}
 
-	for (int i = 0; i < numValidRec; i++) {
-		carIDs[i] = validRec[i].GetID();
-		modelNames[i] = validRec[i].GetModel();
-		quantities[i] = validRec[i].GetQuantity();
-		prices[i] = validRec[i].GetPrice();
-
+void Inventory::PopulateInventory(CarRecord recs[], int numValid) {
+	for (int i = 0; i < numValid; i++) {
+		inventory[i] = recs[i];
 	}
+}
+
+void EnterSortSubmenu(CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header) {
+	int userChoiceSortMenu;
+	Inventory carInventory;
+	carInventory.PopulateInventory(validRec, numValidRec);
 
 	do {
 		cout << "\n\nSORT BY: \n"
@@ -472,22 +485,19 @@ void EnterSortSubmenu(const CarRecord validRec[], int numValidRec, int& userChoi
 			"5. GO BACK\n"
 			"6. QUIT\n\n";
 		cin >> userChoiceSortMenu;
+		Sort(carInventory.GetInventory(), numValidRec, userChoiceSortMenu);
 		switch (userChoiceSortMenu) {
 		case SORT_CAR_ID:
-			Sort(carIDs, modelNames, quantities, prices, numValidRec);
-			PrintSortedData(carIDs, modelNames, quantities, prices, numValidRec);
+			PrintSortedData(carInventory.GetInventory(), numValidRec, border, header);
 			break;
 		case SORT_MODEL_NAME:
-			Sort(modelNames, carIDs, quantities, prices, numValidRec);
-			PrintSortedData(carIDs, modelNames, quantities, prices, numValidRec);
+			PrintSortedData(carInventory.GetInventory(), numValidRec, border, header);
 			break;
 		case SORT_QUANTITY:
-			Sort(quantities, carIDs, modelNames, prices, numValidRec);
-			PrintSortedData(carIDs, modelNames, quantities, prices, numValidRec);
+			PrintSortedData(carInventory.GetInventory(), numValidRec, border, header);
 			break;
 		case SORT_PRICE:
-			Sort(prices, carIDs, modelNames, quantities, numValidRec);
-			PrintSortedData(carIDs, modelNames, quantities, prices, numValidRec);
+			PrintSortedData(carInventory.GetInventory(), numValidRec, border, header);
 			break;
 		case SORT_GO_BACK:
 			cout << "GOING BACK TO MAIN MENU\n";
@@ -501,109 +511,179 @@ void EnterSortSubmenu(const CarRecord validRec[], int numValidRec, int& userChoi
 	} while (!(userChoiceSortMenu == SORT_GO_BACK || userChoiceMainMenu == QUIT));
 }
 
-
-void Sort(string* sortByArray, string* parallelArray1, int* parallelArray2, double* parallelArray3, int size) {
-	int maxIndex;
-	for (int i = 0; i < size; i++) {
-		maxIndex = i;
-
+void Sort(CarRecord* inventory, int size, int sortOption) {
+	for (int i = 0; i < size - 1; i++) {
 		for (int j = i + 1; j < size; j++) {
-			if (sortByArray[j] > sortByArray[maxIndex]) {
-				maxIndex = j;
+			bool toSwap = false;
+
+			switch (sortOption) {
+			case SORT_CAR_ID:
+				toSwap = (inventory + j)->GetID() > (inventory + i)->GetID();
+				break;
+			case SORT_MODEL_NAME:
+				toSwap = (inventory + j)->GetModel() > (inventory + i)->GetModel();
+				break;
+			case SORT_QUANTITY:
+				toSwap = (inventory + j)->GetQuantity() > (inventory + i)->GetQuantity();
+				break;
+			case SORT_PRICE:
+				toSwap = (inventory + j)->GetPrice() > (inventory + i)->GetPrice();
+				break;
+			}
+
+			if (toSwap) {
+				CarRecord temp = *(inventory + i);
+				*(inventory + i) = *(inventory + j);
+				*(inventory + j) = temp;
 			}
 		}
-
-		if (i != maxIndex) {
-			string temp1 = *(sortByArray + i);
-			*(sortByArray + i) = *(sortByArray + maxIndex);
-			*(sortByArray + maxIndex) = temp1;
-
-			string temp2 = *(parallelArray1 + i);
-			*(parallelArray1 + i) = *(parallelArray1 + maxIndex);
-			*(parallelArray1 + maxIndex) = temp2;
-
-			int temp3 = *(parallelArray2 + i);
-			*(parallelArray2 + i) = *(parallelArray2 + maxIndex);
-			*(parallelArray2 + maxIndex) = temp3;
-
-			double temp4 = *(parallelArray3 + i);
-			*(parallelArray3 + i) = *(parallelArray3 + maxIndex);
-			*(parallelArray3 + maxIndex) = temp4;
-		}
-
 	}
 }
 
-
-void Sort(int* sortByArray, string* parallelArray1, string* parallelArray2, double* parallelArray3, int size) {
-	int maxIndex;
-	for (int i = 0; i < size; i++) {
-		maxIndex = i;
-
-		for (int j = i + 1; j < size; j++) {
-			if (sortByArray[j] > sortByArray[maxIndex]) {
-				maxIndex = j;
-			}
-		}
-
-		if (i != maxIndex) {
-			string temp1 = *(parallelArray1 + i);
-			*(parallelArray1 + i) = *(parallelArray1 + maxIndex);
-			*(parallelArray1 + maxIndex) = temp1;
-
-			string temp2 = *(parallelArray2 + i);
-			*(parallelArray2 + i) = *(parallelArray2 + maxIndex);
-			*(parallelArray2 + maxIndex) = temp2;
-
-			int temp3 = *(sortByArray + i);
-			*(sortByArray + i) = *(sortByArray + maxIndex);
-			*(sortByArray + maxIndex) = temp3;
-
-			double temp4 = *(parallelArray3 + i);
-			*(parallelArray3 + i) = *(parallelArray3 + maxIndex);
-			*(parallelArray3 + maxIndex) = temp4;
-		}
-
+void PrintSortedData(CarRecord* inventory, int size, string border, string header) {
+	if (size == 0) {
+		cout << "NO VALID RECORDS\n";
 	}
+	else {
+		cout << border << "\n" << header;
+		for (int i = 0; i < size; i++) {
+			cout << inventory[i].ToString() << "\n";
+		}
+		cout << border;
+	}
+	
 }
 
-void Sort(double* sortByArray, string* parallelArray1, string* parallelArray2, int* parallelArray3, int size) {
-	int maxIndex;
-	for (int i = 0; i < size; i++) {
-		maxIndex = i;
 
-		for (int j = i + 1; j < size; j++) {
-			if (sortByArray[j] > sortByArray[maxIndex]) {
-				maxIndex = j;
-			}
-		}
+//TEST 1 (Sort by all categories)
+/*
 
-		if (i != maxIndex) {
-			string temp1 = *(parallelArray1 + i);
-			*(parallelArray1 + i) = *(parallelArray1 + maxIndex);
-			*(parallelArray1 + maxIndex) = temp1;
+MENU:
+1. PRINT VALID RECORDS
+2. PRINT INVALID RECORDS
+3. SEARCH FOR CAR RECORD
+4. SORT
+5. QUIT
 
-			string temp2 = *(parallelArray2 + i);
-			*(parallelArray2 + i) = *(parallelArray2 + maxIndex);
-			*(parallelArray2 + maxIndex) = temp2;
+4
 
-			int temp3 = *(parallelArray3 + i);
-			*(parallelArray3 + i) = *(parallelArray3 + maxIndex);
-			*(parallelArray3 + maxIndex) = temp3;
 
-			double temp4 = *(sortByArray + i);
-			*(sortByArray + i) = *(sortByArray + maxIndex);
-			*(sortByArray + maxIndex) = temp4;
-		}
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
 
-	}
-}
+1
+--------------------------------------------------
+Car ID         Model        Quantity         Price
 
-void PrintSortedData(string carIDs[], string modelNames[], int quantities[], double prices[], int size) {
-	for (int i = 0; i < size; i++) {
-		cout << setw(SETW_ID) << left << carIDs[i]
-			<< setw(SETW_MODEL) << modelNames[i]
-			<< setw(SETW_QUANTITY) << right << quantities[i]
-			<< setw(SETW_PRICE) << prices[i] << "\n";
-	}
-}
+PLT6HJ764      LAFERRARI          20      16780.24
+LP8E5V159      CAMERO              0      72380.81
+LAX9NN745      MODELX             30      41490.00
+KFUSG6765      FUSION5            22      19975.12
+KDTYGA123      COROLLA6            0      22490.99
+JGR5YG258      PRIUS              15      20090.54
+IAT67T964      SENTRA            110      25840.99
+HTG6T5679      LOTUS4              2     134535.73
+DSN0DG715      CROSSOVER          75      26700.73
+ALY13M398      BEATLE             90      19750.11
+--------------------------------------------------
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
+2
+--------------------------------------------------
+Car ID         Model        Quantity         Price
+
+IAT67T964      SENTRA            110      25840.99
+JGR5YG258      PRIUS              15      20090.54
+LAX9NN745      MODELX             30      41490.00
+HTG6T5679      LOTUS4              2     134535.73
+PLT6HJ764      LAFERRARI          20      16780.24
+KFUSG6765      FUSION5            22      19975.12
+DSN0DG715      CROSSOVER          75      26700.73
+KDTYGA123      COROLLA6            0      22490.99
+LP8E5V159      CAMERO              0      72380.81
+ALY13M398      BEATLE             90      19750.11
+--------------------------------------------------
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
+3
+--------------------------------------------------
+Car ID         Model        Quantity         Price
+
+IAT67T964      SENTRA            110      25840.99
+ALY13M398      BEATLE             90      19750.11
+DSN0DG715      CROSSOVER          75      26700.73
+LAX9NN745      MODELX             30      41490.00
+KFUSG6765      FUSION5            22      19975.12
+PLT6HJ764      LAFERRARI          20      16780.24
+JGR5YG258      PRIUS              15      20090.54
+HTG6T5679      LOTUS4              2     134535.73
+LP8E5V159      CAMERO              0      72380.81
+KDTYGA123      COROLLA6            0      22490.99
+--------------------------------------------------
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
+4
+--------------------------------------------------
+Car ID         Model        Quantity         Price
+
+HTG6T5679      LOTUS4              2     134535.73
+LP8E5V159      CAMERO              0      72380.81
+LAX9NN745      MODELX             30      41490.00
+DSN0DG715      CROSSOVER          75      26700.73
+IAT67T964      SENTRA            110      25840.99
+KDTYGA123      COROLLA6            0      22490.99
+JGR5YG258      PRIUS              15      20090.54
+KFUSG6765      FUSION5            22      19975.12
+ALY13M398      BEATLE             90      19750.11
+PLT6HJ764      LAFERRARI          20      16780.24
+--------------------------------------------------
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
+5
+GOING BACK TO MAIN MENU
+
+
+MENU:
+1. PRINT VALID RECORDS
+2. PRINT INVALID RECORDS
+3. SEARCH FOR CAR RECORD
+4. SORT
+5. QUIT
+
+5
+
+QUITTING...
+*/
