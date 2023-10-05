@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <limits>
 
 using namespace std;
 const int MAX_NUM_RECORDS = 30,
@@ -37,26 +38,27 @@ private:
 
 class Inventory {
 public:
-	
-	void PopulatePInventory(CarRecord recs[], int numValid);
 
-	CarRecord** GetPInventory() { return pInventory; }
-	/*void PopulateInventory(string id, string model, int quantity, double price, int index);
-	void PopulateInventory(CarRecord recs[], int numValid);
-	string* GetIds() { return carIds; }
-	string* GetNames() { return modelNames; }
-	int* GetQuantites() { return quantities; }
-	double* getPrices() { return prices; }
-	CarRecord* GetInventory() { return inventory; }*/
+	Inventory() { SetNumRec(0); }
+	
+	void AddRecord(CarRecord rec);
+
+	void SetNumRec(int numRecords) { numRecs = numRecords; }
+
+	CarRecord* GetInventory() { return inventory; }
+
+	int GetNumRecs() const { return numRecs; }
+
+	void SortInventory(int sortOption);
+
+	void PrintUnsortedInventory(string border, string header) const;
+
+	void PrintSortedInventory(string border, string header) const;
 
 private:
+	CarRecord inventory[MAX_NUM_RECORDS];
 	CarRecord* pInventory[MAX_NUM_RECORDS];
-	/*CarRecord inventory[MAX_NUM_RECORDS];
-	string modelNames[MAX_NUM_RECORDS];
-	string carIds[MAX_NUM_RECORDS];
-	int quantities[MAX_NUM_RECORDS];
-	double prices[MAX_NUM_RECORDS];*/
-
+	int numRecs;
 };
 
 enum Menu {
@@ -71,13 +73,10 @@ enum SortMenu {
 	SORT_CAR_ID = 1, SORT_MODEL_NAME = 2, SORT_QUANTITY = 3, SORT_PRICE = 4, SORT_GO_BACK = 5, SORT_QUIT = 6
 };
 
+
 //LAB #1
-
 //Gets the data from the input file and writes all invalid data to error file
-void GetData(CarRecord validRec[], int& numValidRec, int& numInvalidRec, string errorFileName, string inputFileName);
-
-//prints valid records to screen in table format
-void PrintValidRecords(const CarRecord validRec[], int numValidRec, string border, string header);
+void GetData(Inventory& inventory, int& numInvalidRec, string errorFileName, string inputFileName);
 
 //prints invalid records to screen in table format
 void PrintInvalidRecords(string border, string header, string errorFileName, int numInvalid);
@@ -96,40 +95,36 @@ string ToUpper(string str); //returns string converted to upper case
 
 void ClearInvalidInput(string errMsg); //clears cin, clears the keyboard buffer, prints an error message
 
-//LAB #2
 
+//LAB #2
 //Creates the submenu for searching for a record
-void EnterSearchSubMenu(const CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header);
+void EnterSearchSubMenu(Inventory inventory, int& userChoiceMainMenu, string border, string header);
 
 //searches the records by Car ID or Model Name
-string SearchByIdOrModel(const CarRecord validRec[], int numValidRec, string keyWord);
+string SearchByIdOrModel(Inventory inventory, string keyWord);
 
 //searches the records by price
-string SearchByPrice(const CarRecord validRec[], int numValidRec, double lowerBound, double upperBound);
+string SearchByPrice(Inventory inventory, double lowerBound, double upperBound);
 
 //Outputs any records that matches the search
-void PrintSearchResultsIdOrModel(const CarRecord validRec[], int numValidRec, string border, string header);
+void PrintSearchResultsIdOrModel(Inventory inventory, string border, string header);
 
 //Outputs any record that matches the search
-void PrintSearchResultsPrice(const CarRecord validRec[], int numValidRec, string border, string header);
+void PrintSearchResultsPrice(Inventory inventory, string border, string header);
+
 
 //LAB #5
-
 //Creates the submenu for sorting the inventory
-void EnterSortSubmenu(CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header);
+void EnterSortSubmenu(Inventory& inventory, int& userChoiceMainMenu, string border, string header);
 
-//sorts the inventory in decending order based on what the user wants
-void Sort(CarRecord** pInventory, int size, int sortOption);
 
-//prints the sorted data
-void PrintSortedData(CarRecord** pInventory, int size, string border, string header);
 
 int main() {
-	int userChoiceMainMenu, numValidRec = 0, numInvalidRec = 0;
+	int userChoiceMainMenu, numInvalidRec = 0;
 	stringstream borderSS, headerSS;
-	CarRecord validRecords[MAX_NUM_RECORDS];
+	Inventory inventory;
 	string inputFileName = "test.txt", errorFileName = "InvalidRecords.txt", border, header;
-	GetData(validRecords, numValidRec, numInvalidRec, errorFileName, inputFileName);
+	GetData(inventory, numInvalidRec, errorFileName, inputFileName);
 
 	cout << fixed << setprecision(SETPRECISION);
 
@@ -149,16 +144,16 @@ int main() {
 		cin >> userChoiceMainMenu;
 		switch (userChoiceMainMenu) {
 		case PRINT_VALID:
-			PrintValidRecords(validRecords, numValidRec, border, header);
+			inventory.PrintUnsortedInventory(border, header);
 			break;
 		case PRINT_INVALID:
 			PrintInvalidRecords(border, header, errorFileName, numInvalidRec);
 			break;
 		case RETRIEVE_RECORD:
-			EnterSearchSubMenu(validRecords, numValidRec, userChoiceMainMenu, border, header);
+			EnterSearchSubMenu(inventory, userChoiceMainMenu, border, header);
 			break;
 		case SORT:
-			EnterSortSubmenu(validRecords, numValidRec, userChoiceMainMenu, border, header);
+			EnterSortSubmenu(inventory, userChoiceMainMenu, border, header);
 		case QUIT:
 			break;
 		default:
@@ -169,6 +164,9 @@ int main() {
 	return 0;
 }
 
+
+
+//CAR RECORD METHODS
 void CarRecord::SetRecord(string ID, string modelName, int quantityOnHand, double cost) {
 	carID = ID;
 	model = modelName;
@@ -185,10 +183,83 @@ string CarRecord::ToString() const {
 	return ss.str();
 }
 
-void GetData(CarRecord validRec[], int& numValidRec, int& numInvalidRec, string errorFileName, string inputFileName) {
+
+//INVENTORY METHODS
+void Inventory::AddRecord(CarRecord rec) {
+	numRecs++;
+	inventory[numRecs - 1] = rec;
+	pInventory[numRecs - 1] = &inventory[numRecs - 1];
+	
+}
+
+void Inventory::SortInventory(int sortOption) {
+	for (int i = 0; i < numRecs - 1; i++) {
+		int maxIndex = i;
+		for (int j = i + 1; j < numRecs; j++) {
+			bool toSwap = false;
+
+			switch (sortOption) {
+			case SORT_CAR_ID:
+				toSwap = pInventory[j]->GetID() > pInventory[maxIndex]->GetID();
+				break;
+			case SORT_MODEL_NAME:
+				toSwap = pInventory[j]->GetModel() > pInventory[maxIndex]->GetModel();
+				break;
+			case SORT_QUANTITY:
+				toSwap = pInventory[j]->GetQuantity() > pInventory[maxIndex]->GetQuantity();
+				break;
+			case SORT_PRICE:
+				toSwap = pInventory[j]->GetPrice() > pInventory[maxIndex]->GetPrice();
+				break;
+			}
+
+			if (toSwap) {
+				maxIndex = j;
+			}
+		}
+
+		if (maxIndex != i) {
+			CarRecord* pTemp = pInventory[i];
+			pInventory[i] = pInventory[maxIndex];
+			pInventory[maxIndex] = pTemp;
+		}
+	}
+}
+
+void Inventory::PrintUnsortedInventory(string border, string header) const  {
+	if (numRecs == 0) {
+		cout << "NO VALID RECORDS\n";
+	}
+	else {
+		cout << border << "\n" << header;
+		for (int i = 0; i < numRecs; i++) {
+			cout << inventory[i].ToString() << "\n";
+		}
+		cout << border;
+	}
+}
+
+void Inventory::PrintSortedInventory(string border, string header) const {
+	if (numRecs == 0) {
+		cout << "NO VALID RECORDS\n";
+	}
+	else {
+		cout << border << "\n" << header;
+		for (int i = 0; i < numRecs; i++) {
+			cout << pInventory[i]->ToString() << "\n";
+		}
+		cout << border;
+	}
+}
+
+
+//LAB #1
+void GetData(Inventory& inventory, int& numInvalidRec, string errorFileName, string inputFileName) {
 	string tempCarID, tempModel, errMsg;
 	int tempQuantity;
+	inventory.SetNumRec(0);
 	double tempPrice;
+	CarRecord tempRec;
 	ifstream inFile(inputFileName);
 	ofstream errorFile(errorFileName);
 	if (!inFile) {
@@ -202,14 +273,15 @@ void GetData(CarRecord validRec[], int& numValidRec, int& numInvalidRec, string 
 		system("pause");
 		exit(EXIT_FAILURE);
 	}
-	while (!inFile.eof() && numValidRec < MAX_NUM_RECORDS) {
+	while (!inFile.eof() && inventory.GetNumRecs() < MAX_NUM_RECORDS) {
 		inFile >> tempCarID >> tempModel >> tempQuantity >> tempPrice;
 		tempCarID = ToUpper(tempCarID);
 		tempModel = ToUpper(tempModel);
 		errMsg = "";
 		if (IsValidRecord(tempCarID, tempModel, tempQuantity, tempPrice, errMsg)) { //separates valid and invalid records
-			validRec[numValidRec].SetRecord(tempCarID, tempModel, tempQuantity, tempPrice);
-			numValidRec++;
+			tempRec.SetRecord(tempCarID, tempModel, tempQuantity, tempPrice);
+			inventory.AddRecord(tempRec);
+			//numValidRec++;
 		}
 		else {
 			errorFile << setw(SETW_ID) << left << tempCarID
@@ -219,26 +291,12 @@ void GetData(CarRecord validRec[], int& numValidRec, int& numInvalidRec, string 
 			numInvalidRec++;
 		}
 	}
-	if (numValidRec == MAX_NUM_RECORDS && !inFile.eof()) {
+
+	if (inventory.GetNumRecs() == MAX_NUM_RECORDS && !inFile.eof()) {
 		cout << "Not all Records have been stored; only the first " << MAX_NUM_RECORDS << " were processed." << "\n";
 	}
 	inFile.close();
 	errorFile.close();
-}
-
-void PrintValidRecords(const CarRecord validRec[], int numValidRec, string border, string header) {
-	if (numValidRec == 0) {
-		cout << "\nNO VALID RECORDS FOUND.\n";
-	}
-	else {
-		cout << "\nDISPLAYING " << numValidRec << " VALID RECORDS(UNSORTED)...\n"
-			<< border << "\n"
-			<< header;
-		for (int i = 0; i < numValidRec; i++) {
-			cout << validRec[i].ToString() << "\n";
-		}
-		cout << border << "\n";
-	}
 }
 
 void PrintInvalidRecords(string border, string header, string errorFileName, int numInvalidRec) {
@@ -314,8 +372,8 @@ bool IsValidModel(string model, string& errorMessage) {
 		meetsModelCriteria = false;
 		modelErrorMessage += " Must start with a letter.";
 	}
-	int len = model.length();
-	for (int i = 1; i < len; i++) { //checks if Model meets criteria 2
+	size_t len = model.length();
+	for (size_t i = 1; i < len; i++) { //checks if Model meets criteria 2
 		char ch = model[i];
 		if (!((((ch >= 'A') && (ch <= 'Z'))) || ((ch >= '0') && (ch <= '9')))) {
 			meetsModelCriteria = false;
@@ -373,30 +431,34 @@ void ClearInvalidInput(string errMsg) {
 	cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
-string SearchByIdOrModel(const CarRecord validRec[], int numValidRec, string keyWord) {
+
+//LAB #2
+string SearchByIdOrModel(Inventory inventory, string keyWord) {
 	string recordsFound = "";
-	for (int i = 0; i < numValidRec; i++) {
-		string tempModel = validRec[i].GetModel(),
-			tempID = validRec[i].GetID();
+	int numRecs = inventory.GetNumRecs();
+	for (int i = 0; i < numRecs; i++) {
+		string tempModel = inventory.GetInventory()[i].GetModel(),
+			tempID = inventory.GetInventory()[i].GetID();
 		if (tempModel.find(keyWord) != std::string::npos || tempID.find(keyWord) != std::string::npos) {
-			recordsFound += validRec[i].ToString() + "\n";
+			recordsFound += inventory.GetInventory()[i].ToString() + "\n";
 		}
 	}
 	return recordsFound;
 }
 
-string SearchByPrice(const CarRecord validRec[], int numValidRec, double lowerBound, double upperBound) {
+string SearchByPrice(Inventory inventory, double lowerBound, double upperBound) {
 	string recordsFound = "";
-	for (int i = 0; i < numValidRec; i++) {
-		if (validRec[i].GetPrice() <= upperBound && validRec[i].GetPrice() >= lowerBound) {
-			recordsFound += validRec[i].ToString() + "\n";
+	int numRecs = inventory.GetNumRecs();
+	for (int i = 0; i < numRecs; i++) {
+		if (inventory.GetInventory()[i].GetPrice() <= upperBound && inventory.GetInventory()[i].GetPrice() >= lowerBound) {
+			recordsFound += inventory.GetInventory()[i].ToString() + "\n";
 		}
 	}
 
 	return recordsFound;
 }
 
-void PrintSearchResultsPrice(const CarRecord validRec[], int numValidRec, string border, string header) {
+void PrintSearchResultsPrice(Inventory inventory, string border, string header) {
 	double searchPrice;
 	string recordsFound = "";
 	cout << "\nEnter the price you are looking for(Range +/- " << SEARCH_PRICE_RANGE * 100 << " %): \n";
@@ -405,7 +467,7 @@ void PrintSearchResultsPrice(const CarRecord validRec[], int numValidRec, string
 	}
 	double lowerBound = searchPrice * (1 - SEARCH_PRICE_RANGE), upperBound = searchPrice * (1 + SEARCH_PRICE_RANGE);
 
-	recordsFound += SearchByPrice(validRec, numValidRec, lowerBound, upperBound);
+	recordsFound += SearchByPrice(inventory, lowerBound, upperBound);
 
 	if (recordsFound != "") {
 		cout << "\nRecords within the price range of " << "$ " << lowerBound << " to $ " << upperBound << " found: \n"
@@ -419,13 +481,13 @@ void PrintSearchResultsPrice(const CarRecord validRec[], int numValidRec, string
 	}
 }
 
-void PrintSearchResultsIdOrModel(const CarRecord validRec[], int numValidRec, string border, string header) {
+void PrintSearchResultsIdOrModel(Inventory inventory, string border, string header) {
 	string keyWord, recordsFound = "";
 	cout << "\nEnter the keyword you want to search by: \n";
 	cin >> keyWord;
 	keyWord = ToUpper(keyWord);
 
-	recordsFound += SearchByIdOrModel(validRec, numValidRec, keyWord);
+	recordsFound += SearchByIdOrModel(inventory, keyWord);
 
 	if (recordsFound != "") {
 		cout << "\nRecords containing \"" << keyWord << "\" found: \n"
@@ -439,7 +501,7 @@ void PrintSearchResultsIdOrModel(const CarRecord validRec[], int numValidRec, st
 	}
 }
 
-void EnterSearchSubMenu(const CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header) {
+void EnterSearchSubMenu(Inventory inventory, int& userChoiceMainMenu, string border, string header) {
 	int userChoiceSearchMenu;
 	do {
 		cout << "\n\nSEARCH BY: \n"
@@ -450,10 +512,10 @@ void EnterSearchSubMenu(const CarRecord validRec[], int numValidRec, int& userCh
 		cin >> userChoiceSearchMenu;
 		switch (userChoiceSearchMenu) {
 		case SEARCH_CAR_ID_OR_NAME:
-			PrintSearchResultsIdOrModel(validRec, numValidRec, border, header);
+			PrintSearchResultsIdOrModel(inventory, border, header);
 			break;
 		case SEARCH_PRICE:
-			PrintSearchResultsPrice(validRec, numValidRec, border, header);
+			PrintSearchResultsPrice(inventory, border, header);
 			break;
 		case SEARCH_GO_BACK:
 			cout << "GOING BACK TO MAIN MENU\n";
@@ -467,30 +529,10 @@ void EnterSearchSubMenu(const CarRecord validRec[], int numValidRec, int& userCh
 	} while (!(userChoiceSearchMenu == SEARCH_GO_BACK || userChoiceMainMenu == QUIT));
 }
 
-//void Inventory::PopulateInventory(string id, string model, int quantity, double price, int index) {
-//	carIds[index] = id;
-//	modelNames[index] = model;
-//	quantities[index] = quantity;
-//	prices[index] = price;
-//}
 
-//void Inventory::PopulateInventory(CarRecord recs[], int numValid) {
-//	for (int i = 0; i < numValid; i++) {
-//		inventory[i] = recs[i];
-//	}
-//}
-
-void Inventory::PopulatePInventory(CarRecord recs[], int numValid) {
-	for (int i = 0; i < numValid; i++) {
-		pInventory[i] = &recs[i];
-	}
-}
-
-void EnterSortSubmenu(CarRecord validRec[], int numValidRec, int& userChoiceMainMenu, string border, string header) {
+//LAB #5
+void EnterSortSubmenu(Inventory& inventory, int& userChoiceMainMenu, string border, string header) {
 	int userChoiceSortMenu;
-	Inventory carInventory;
-	//carInventory.PopulateInventory(validRec, numValidRec);
-	carInventory.PopulatePInventory(validRec, numValidRec);
 
 	do {
 		cout << "\n\nSORT BY: \n"
@@ -501,19 +543,14 @@ void EnterSortSubmenu(CarRecord validRec[], int numValidRec, int& userChoiceMain
 			"5. GO BACK\n"
 			"6. QUIT\n\n";
 		cin >> userChoiceSortMenu;
-		Sort(carInventory.GetPInventory(), numValidRec, userChoiceSortMenu);
+		
 		switch (userChoiceSortMenu) {
 		case SORT_CAR_ID:
-			PrintSortedData(carInventory.GetPInventory(), numValidRec, border, header);
-			break;
 		case SORT_MODEL_NAME:
-			PrintSortedData(carInventory.GetPInventory(), numValidRec, border, header);
-			break;
 		case SORT_QUANTITY:
-			PrintSortedData(carInventory.GetPInventory(), numValidRec, border, header);
-			break;
 		case SORT_PRICE:
-			PrintSortedData(carInventory.GetPInventory(), numValidRec, border, header);
+			inventory.SortInventory(userChoiceSortMenu);
+			inventory.PrintSortedInventory(border, header);
 			break;
 		case SORT_GO_BACK:
 			cout << "GOING BACK TO MAIN MENU\n";
@@ -527,57 +564,10 @@ void EnterSortSubmenu(CarRecord validRec[], int numValidRec, int& userChoiceMain
 	} while (!(userChoiceSortMenu == SORT_GO_BACK || userChoiceMainMenu == QUIT));
 }
 
-void Sort(CarRecord** pInventory, int size, int sortOption) {
-	for (int i = 0; i < size - 1; i++) {
-		int maxIndex = i;
-		for (int j = i + 1; j < size; j++) {
-			bool toSwap = false;
 
-			switch (sortOption) {
-			case SORT_CAR_ID:
-				toSwap = pInventory[j]->GetID() > pInventory[maxIndex]->GetID();
-				break;
-			case SORT_MODEL_NAME:
-				toSwap = pInventory[j]->GetModel() > pInventory[maxIndex]->GetModel();
-				break;
-			case SORT_QUANTITY:
-				toSwap = pInventory[j]->GetQuantity() > pInventory[maxIndex]->GetQuantity();
-				break;
-			case SORT_PRICE:
-				toSwap = pInventory[j]->GetPrice() > pInventory[maxIndex]->GetPrice();
-				break;
-			}
-
-			if (toSwap) {
-				maxIndex = j;
-			}
-		}
-
-		if (maxIndex != i) {
-			CarRecord* pTemp = pInventory[i];
-			pInventory[i] = pInventory[maxIndex];
-			pInventory[maxIndex] = pTemp;
-		}
-	}
-}
-
-void PrintSortedData(CarRecord** pInventory, int size, string border, string header) {
-	if (size == 0) {
-		cout << "NO VALID RECORDS\n";
-	}
-	else {
-		cout << border << "\n" << header;
-		for (int i = 0; i < size; i++) {
-			cout << pInventory[i]->ToString() << "\n";
-		}
-		cout << border;
-	}
-	
-}
-
-
-//TEST 1 (Sort by all categories)
+//TEST 1 (Sort by ID)
 /*
+
 
 MENU:
 1. PRINT VALID RECORDS
@@ -621,6 +611,43 @@ SORT BY:
 5. GO BACK
 6. QUIT
 
+5
+GOING BACK TO MAIN MENU
+
+
+MENU:
+1. PRINT VALID RECORDS
+2. PRINT INVALID RECORDS
+3. SEARCH FOR CAR RECORD
+4. SORT
+5. QUIT
+
+5
+
+QUITTING...
+*/
+
+//TEST 2 (Sort by model)
+/*
+
+MENU:
+1. PRINT VALID RECORDS
+2. PRINT INVALID RECORDS
+3. SEARCH FOR CAR RECORD
+4. SORT
+5. QUIT
+
+4
+
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
 2
 --------------------------------------------------
 Car ID         Model        Quantity         Price
@@ -636,6 +663,31 @@ KDTYGA123      COROLLA6            0      22490.99
 LP8E5V159      CAMERO              0      72380.81
 ALY13M398      BEATLE             90      19750.11
 --------------------------------------------------
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
+6
+
+QUITTING...
+*/
+
+//TEST #3 (Sort by quantity)
+/*
+MENU:
+1. PRINT VALID RECORDS
+2. PRINT INVALID RECORDS
+3. SEARCH FOR CAR RECORD
+4. SORT
+5. QUIT
+
+4
+
 
 SORT BY:
 1. CAR ID
@@ -669,6 +721,46 @@ SORT BY:
 5. GO BACK
 6. QUIT
 
+sdafa
+
+INVALID MENU SELECTION
+
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
+6
+
+QUITTING...
+
+*/
+
+//TEST #4 (sort by price)
+/*
+
+MENU:
+1. PRINT VALID RECORDS
+2. PRINT INVALID RECORDS
+3. SEARCH FOR CAR RECORD
+4. SORT
+5. QUIT
+
+4
+
+
+SORT BY:
+1. CAR ID
+2. MODEL NAME
+3. QUANTITY
+4. PRICE
+5. GO BACK
+6. QUIT
+
 4
 --------------------------------------------------
 Car ID         Model        Quantity         Price
@@ -693,18 +785,7 @@ SORT BY:
 5. GO BACK
 6. QUIT
 
-5
-GOING BACK TO MAIN MENU
-
-
-MENU:
-1. PRINT VALID RECORDS
-2. PRINT INVALID RECORDS
-3. SEARCH FOR CAR RECORD
-4. SORT
-5. QUIT
-
-5
+6
 
 QUITTING...
 */
